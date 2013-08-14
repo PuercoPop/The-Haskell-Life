@@ -17,14 +17,15 @@ isAlive cell = case cellStatus cell of
 
 isDead = not . isAlive
 
-tick :: Cell -> Cell
-tick cell = Cell {position cell, nextStatus cell}
+tick :: Cell -> Grid -> Cell
+tick cell grid = Cell (position cell) (nextStatus cell grid)
 
-nextStatus :: Cell -> CellStatus
-nextStatus = case length [ cellStatus x  |
-                           x <- getNeighbourPositions, isAlive x ] of
-               2 or 3 -> Alive
-               _ - > Dead
+nextStatus :: Cell -> Grid -> CellStatus
+nextStatus cell grid = let len = length (getAliveNeighbours cell grid) in
+  if len `elem` [2, 3] then Alive else Dead
+
+getAliveNeighbours :: Cell -> Grid -> [CellStatus]
+getAliveNeighbours cell grid  = [ cellStatus x  |  x <- getNeighbours cell grid, isAlive x ]
 
 getNeighbours :: Cell -> Grid -> [Cell]
 getNeighbours cell grid = catMaybes
@@ -37,19 +38,25 @@ getNeighbourPositions cell = [ (m, n) |
   where (x, y) = position cell
         surrounding n = [n - 1, n + 1]
 
+initializeGrid :: Int -> Int -> [Position] -> Grid
+initializeGrid height width alivecells =
+  foldr insertDeadCell M.empty (combinations height width)
+  where
+    insertDeadCell :: Position -> Grid -> Grid
+    insertDeadCell position m  = M.insert position (Cell position Dead) m
 
-initializeGrid :: Int -> Int -> Grid
-initializeGrid = cell{}
+combinations :: Int -> Int -> [Position]
+combinations height width = [ (x, y) | x <- [0 .. height],
+                                       y <- [0 .. width]]
 
-main (Int, Int) -> Int -> Grid
-main gridSize steps = mainLoop , steps
+main :: (Int, Int) -> Int -> Grid
+main gridSize steps = mainLoop (initializeGrid 20 20 [(0,0)]) steps
 
-mainLoop Grid -> Int -> Grid
-mainLoop grid counter = case counter of
-  0 -> grid
-  (> 0) -> mainLoop (tickGrid grid) (pred counter)
-  _ -> error "Danger Will Robinson"
+mainLoop :: Grid -> Int -> Grid
+mainLoop grid 0 = grid
+mainLoop grid counter | counter > 0 = mainLoop (tickGrid grid) (pred counter)
+mainLoop _ _ = error "Danger Will Robinson"
 
 
 tickGrid :: Grid -> Grid
-tickGrid grid = M.map tick grid
+tickGrid grid = M.map (flip tick grid) grid
